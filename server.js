@@ -1,3 +1,4 @@
+const http = require('node:http');
 const express = require('express');
 
 const app = express();
@@ -12,10 +13,9 @@ app.use((req, res) => {
   res.status(404).send('Not found');
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Chai stall server running at http://localhost:${PORT}`);
-});
+const server = http.createServer(app);
 
+// Attach the error listener before listening so startup errors are always caught
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is already in use. Stop the other server or set a different PORT.`);
@@ -23,4 +23,8 @@ server.on('error', (error) => {
     console.error('Server failed to start:', error.message);
   }
   process.exit(1);
+});
+
+server.listen(PORT, () => {
+  console.log(`Chai stall server running at http://localhost:${PORT}`);
 });
