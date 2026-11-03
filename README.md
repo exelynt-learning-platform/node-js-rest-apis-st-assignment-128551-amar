@@ -40,9 +40,18 @@ curl -X PUT http://localhost:3000/tasks/1 -H "Content-Type: application/json" -d
 curl -X DELETE http://localhost:3000/tasks/1
 ```
 
+## Automated tests
+
+`test/tasks-api.test.js` uses Node's built-in test runner (`node:test`) and `fetch` to check every route, status code and error case. Nothing extra needs installing.
+
+```bash
+npm test
+```
+
 ## What I learned
 - How REST maps HTTP methods (GET, POST, PUT, DELETE) to actions on a resource
 - Reading a JSON request body with `express.json()`
 - Using an in-memory array as a simple data store
 - Returning the right status codes: 200, 201, 400 and 404
 - Validating input and returning clear JSON errors, including for invalid JSON
+- Writing automated API tests with `node:test`

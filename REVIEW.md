@@ -255,6 +255,20 @@ Response: **400**
 }
 ```
 
+### POST with a JSON array instead of an object (400)
+
+```bash
+curl -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '["Practise curl"]'
+```
+
+Response: **400**
+
+```json
+{
+  "error": "Request body must be a JSON object"
+}
+```
+
 ### Unknown route (404)
 
 ```bash
