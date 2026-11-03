@@ -137,18 +137,27 @@ app.use((error, req, res, next) => {
   sendError(res, 500, 'Something went wrong');
 });
 
-const server = http.createServer(app);
+// Start the server only when this file is run directly (tests import the app instead)
+if (require.main === module) {
+  startServer();
+}
 
-// Attach the error listener before listening so startup errors are always caught
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Stop the other server or set a different PORT.`);
-  } else {
-    console.error('Server failed to start:', error.message);
-  }
-  process.exit(1);
-});
+function startServer() {
+  const server = http.createServer(app);
 
-server.listen(PORT, () => {
-  console.log(`Tasks API running at http://localhost:${PORT}`);
-});
+  // Attach the error listener before listening so startup errors are always caught
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. Stop the other server or set a different PORT.`);
+    } else {
+      console.error('Server failed to start:', error.message);
+    }
+    process.exit(1);
+  });
+
+  server.listen(PORT, () => {
+    console.log(`Tasks API running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
