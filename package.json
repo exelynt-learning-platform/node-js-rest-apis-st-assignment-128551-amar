@@ -1,0 +1,19 @@
+{
+  "name": "tasks-api",
+  "version": "1.0.0",
+  "description": "A small CRUD REST API for to-do tasks with an in-memory store",
+  "main": "tasks-api.js",
+  "scripts": {
+    "start": "node tasks-api.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "author": "Amar Jadhav",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
