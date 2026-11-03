@@ -6,7 +6,7 @@ Everything below was run with curl in Git Bash against `node tasks-api.js` on ht
 
 ```
 $ node tasks-api.js
-Tasks API running at http://localhost:3000 (data file: data	asks.json)
+Tasks API running at http://localhost:3000 (data file: data\tasks.json)
 ```
 
 ```bash
@@ -69,7 +69,7 @@ Stopped the server process and started it again:
 
 ```
 $ node tasks-api.js
-Tasks API running at http://localhost:3000 (data file: data	asks.json)
+Tasks API running at http://localhost:3000 (data file: data\tasks.json)
 ```
 
 ## 4. The added task is still there after the restart
