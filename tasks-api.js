@@ -1,16 +1,17 @@
 const http = require('node:http');
+const path = require('node:path');
+const fs = require('node:fs/promises');
 const express = require('express');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DATA_FILE = process.env.TASKS_FILE || path.join(__dirname, 'data', 'tasks.json');
 
-// In-memory store: data resets when the server restarts
-const tasks = [
-  { id: 1, title: 'Buy milk for the chai stall', done: false },
-  { id: 2, title: 'Finish the Express routes lesson', done: true },
-  { id: 3, title: 'Push the Tasks API to GitHub', done: false },
-];
-let nextId = tasks.length + 1;
+// Tasks are loaded from DATA_FILE at start-up and saved after every change
+let tasks = [];
+
+// Every change goes through this queue, so two requests never write the file at the same time
+let changeQueue = Promise.resolve();
 
 app.use(express.json());
 
@@ -18,13 +19,56 @@ function sendError(res, status, message) {
   return res.status(status).json({ error: message });
 }
 
+// Reads tasks from the JSON file. A missing file starts an empty list; a broken file stops the server.
+async function loadTasks() {
+  try {
+    const fileContents = await fs.readFile(DATA_FILE, 'utf8');
+    const parsed = JSON.parse(fileContents);
+    if (!Array.isArray(parsed)) {
+      throw new Error('the file must contain a JSON array of tasks');
+    }
+    tasks = parsed;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      tasks = [];
+      await saveTasks(tasks);
+    } else {
+      throw new Error(`Could not load ${DATA_FILE}: ${error.message}`);
+    }
+  }
+  return tasks;
+}
+
+// Writes to a temporary file first, then renames it, so a crash never leaves a half-written file
+async function saveTasks(taskList) {
+  await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
+  const tempFile = `${DATA_FILE}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(taskList, null, 2) + '\n', 'utf8');
+  await fs.rename(tempFile, DATA_FILE);
+}
+
+// Runs a change on a copy of the tasks, saves it, and only then keeps it in memory
+function changeTasks(applyChange) {
+  const run = changeQueue.then(async () => {
+    const draft = structuredClone(tasks);
+    const result = applyChange(draft);
+    if (result.changed) {
+      await saveTasks(draft);
+      tasks = draft;
+    }
+    return result;
+  });
+  changeQueue = run.catch(() => {});
+  return run;
+}
+
+function getNextId(taskList) {
+  return taskList.reduce((maxId, task) => Math.max(maxId, task.id), 0) + 1;
+}
+
 // Returns a positive integer id from the URL, or null if it is not valid
 function parseId(value) {
   return /^[1-9]\d*$/.test(value) ? Number(value) : null;
-}
-
-function findTaskIndex(id) {
-  return tasks.findIndex((task) => task.id === id);
 }
 
 // Checks title and done. When requireTitle is false, missing fields are allowed (used by PUT).
@@ -67,60 +111,75 @@ app.get('/tasks', (req, res) => {
 
 // GET /tasks/:id - one task, or 404 if it does not exist
 app.get('/tasks/:id', (req, res) => {
-  const index = findTaskIndex(req.taskId);
-  if (index === -1) {
+  const task = tasks.find((item) => item.id === req.taskId);
+  if (!task) {
     return sendError(res, 404, `Task ${req.taskId} not found`);
   }
-  res.json(tasks[index]);
+  res.json(task);
 });
 
-// POST /tasks - create a task and return it with 201
-app.post('/tasks', (req, res) => {
+// POST /tasks - create a task, save it and return it with 201
+app.post('/tasks', async (req, res) => {
   const validationError = validateTaskInput(req.body, { requireTitle: true });
   if (validationError) {
     return sendError(res, 400, validationError);
   }
 
-  const newTask = {
-    id: nextId++,
-    title: req.body.title.trim(),
-    done: req.body.done ?? false,
-  };
-  tasks.push(newTask);
-  res.status(201).json(newTask);
+  const { task } = await changeTasks((draft) => {
+    const newTask = {
+      id: getNextId(draft),
+      title: req.body.title.trim(),
+      done: req.body.done ?? false,
+    };
+    draft.push(newTask);
+    return { changed: true, task: newTask };
+  });
+
+  res.status(201).json(task);
 });
 
-// PUT /tasks/:id - update the title and/or done status
-app.put('/tasks/:id', (req, res) => {
-  const index = findTaskIndex(req.taskId);
-  if (index === -1) {
-    return sendError(res, 404, `Task ${req.taskId} not found`);
-  }
-
+// PUT /tasks/:id - update the title and/or done status, then save
+app.put('/tasks/:id', async (req, res) => {
   const validationError = validateTaskInput(req.body, { requireTitle: false });
   if (validationError) {
     return sendError(res, 400, validationError);
   }
 
   const { title, done } = req.body;
-  const updatedTask = {
-    ...tasks[index],
-    ...(title !== undefined && { title: title.trim() }),
-    ...(done !== undefined && { done }),
-  };
-  tasks[index] = updatedTask;
-  res.json(updatedTask);
-});
+  const { changed, task } = await changeTasks((draft) => {
+    const index = draft.findIndex((item) => item.id === req.taskId);
+    if (index === -1) {
+      return { changed: false };
+    }
+    draft[index] = {
+      ...draft[index],
+      ...(title !== undefined && { title: title.trim() }),
+      ...(done !== undefined && { done }),
+    };
+    return { changed: true, task: draft[index] };
+  });
 
-// DELETE /tasks/:id - remove a task and return it
-app.delete('/tasks/:id', (req, res) => {
-  const index = findTaskIndex(req.taskId);
-  if (index === -1) {
+  if (!changed) {
     return sendError(res, 404, `Task ${req.taskId} not found`);
   }
+  res.json(task);
+});
 
-  const [deletedTask] = tasks.splice(index, 1);
-  res.json({ message: `Task ${deletedTask.id} deleted`, task: deletedTask });
+// DELETE /tasks/:id - remove a task, save, and return the deleted task
+app.delete('/tasks/:id', async (req, res) => {
+  const { changed, task } = await changeTasks((draft) => {
+    const index = draft.findIndex((item) => item.id === req.taskId);
+    if (index === -1) {
+      return { changed: false };
+    }
+    const [deletedTask] = draft.splice(index, 1);
+    return { changed: true, task: deletedTask };
+  });
+
+  if (!changed) {
+    return sendError(res, 404, `Task ${req.taskId} not found`);
+  }
+  res.json({ message: `Task ${task.id} deleted`, task });
 });
 
 // Unknown routes get a JSON 404
@@ -128,7 +187,7 @@ app.use((req, res) => {
   sendError(res, 404, `Route ${req.method} ${req.path} not found`);
 });
 
-// Invalid JSON bodies and unexpected errors return JSON instead of an HTML page
+// Invalid JSON bodies and unexpected errors (for example a failed file write) return JSON
 app.use((error, req, res, next) => {
   if (error.type === 'entity.parse.failed') {
     return sendError(res, 400, 'Request body is not valid JSON');
@@ -137,12 +196,14 @@ app.use((error, req, res, next) => {
   sendError(res, 500, 'Something went wrong');
 });
 
-// Start the server only when this file is run directly (tests import the app instead)
-if (require.main === module) {
-  startServer();
-}
+async function startServer() {
+  try {
+    await loadTasks();
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
 
-function startServer() {
   const server = http.createServer(app);
 
   // Attach the error listener before listening so startup errors are always caught
@@ -156,8 +217,13 @@ function startServer() {
   });
 
   server.listen(PORT, () => {
-    console.log(`Tasks API running at http://localhost:${PORT}`);
+    console.log(`Tasks API running at http://localhost:${PORT} (data file: ${path.relative(process.cwd(), DATA_FILE)})`);
   });
 }
 
-module.exports = app;
+// Start the server only when this file is run directly (tests import the app instead)
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, loadTasks, DATA_FILE };
