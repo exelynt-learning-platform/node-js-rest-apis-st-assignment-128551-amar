@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "company": "Infosys",
+    "role": "Backend Developer Intern",
+    "status": "applied"
+  },
+  {
+    "id": 2,
+    "company": "Zoho",
+    "role": "Node.js Developer",
+    "status": "interview"
+  },
+  {
+    "id": 3,
+    "company": "Razorpay",
+    "role": "Software Engineer Intern",
+    "status": "offer"
+  }
+]
