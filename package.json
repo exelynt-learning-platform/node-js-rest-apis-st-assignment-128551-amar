@@ -1,0 +1,19 @@
+{
+  "name": "chai-stall-server",
+  "version": "1.0.0",
+  "description": "My first Node.js and Express server for a chai stall",
+  "main": "server.js",
+  "scripts": {
+    "hello": "node hello.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "author": "Amar Jadhav",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
