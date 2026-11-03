@@ -1,0 +1,19 @@
+{
+  "name": "job-applications-api",
+  "version": "1.0.0",
+  "description": "A tiny REST API to track internship and job applications, saved to a JSON file",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "author": "Amar Jadhav",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
