@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "title": "Buy milk for the chai stall",
+    "done": true
+  },
+  {
+    "id": 3,
+    "title": "Push the Tasks API to GitHub",
+    "done": false
+  },
+  {
+    "id": 4,
+    "title": "Learn fs/promises",
+    "done": false
+  },
+  {
+    "id": 5,
+    "title": "Test the API with requests.sh",
+    "done": false
+  }
+]
