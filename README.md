@@ -38,6 +38,10 @@ Test the server in another terminal:
 ```bash
 curl http://localhost:3000/
 # Chai is ready
+
+curl -i http://localhost:3000/menu
+# HTTP/1.1 404 Not Found
+# Not found
 ```
 
 If port 3000 is busy, run on another port: `PORT=4000 node server.js`.
